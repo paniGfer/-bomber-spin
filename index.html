@@ -142,8 +142,10 @@
         // its collision until the player has completely left that tile.
         // Walls/crates are still checked above, so escape works beside obstacles.
         if(bomb.escape){
-          const playerStillOverlaps=player.x+r>left&&player.x-r<right&&player.y+r>top&&player.y-r<bottom;
-          if(playerStillOverlaps) continue;
+          // Let the player move out of the bomb's tile even when placed in a tight corridor.
+          // Disable this exception only after the player's center leaves the tile.
+          const centerInside=player.x>=left&&player.x<right&&player.y>=top&&player.y<bottom;
+          if(centerInside) continue;
         }
         const cx=Math.max(left,Math.min(tx,right));
         const cy=Math.max(top,Math.min(ty,bottom));
@@ -221,9 +223,9 @@
     // Let the player leave the bomb's tile once; then the bomb becomes solid.
     for(const b of bombs){
       if(!b.exploded && b.escape){
-        const left=b.x*TILE, top=b.y*TILE, right=left+TILE, bottom=top+TILE, r=player.r;
-        const fullyOutside = player.x+r<=left || player.x-r>=right || player.y+r<=top || player.y-r>=bottom;
-        if(fullyOutside) b.escape=false;
+        const left=b.x*TILE, top=b.y*TILE, right=left+TILE, bottom=top+TILE;
+        const centerOutside = player.x<left || player.x>=right || player.y<top || player.y>=bottom;
+        if(centerOutside) b.escape=false;
       }
     }
     bombs.forEach(b=>{b.t-=dt;if(b.t<=0&&!b.exploded) explode(b);});
