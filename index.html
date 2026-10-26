@@ -13,6 +13,8 @@
   header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; flex-wrap:wrap; }
   h1 { font-size:clamp(20px,4vw,30px); margin:0; letter-spacing:.04em; }
   .tag { color:var(--accent); font-size:12px; border:1px solid #3b8193; border-radius:999px; padding:4px 9px; }
+  .mode-row { display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; }
+  .mode-btn.active { background:#176778; border-color:#67e8f9; }
   .stats { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
   .stat { background:#182132; border:1px solid #2d3b52; border-radius:10px; padding:8px 12px; font-size:14px; }
   .stat b { color:#fff; }
@@ -41,6 +43,8 @@
     header { gap:6px; margin-bottom:8px; }
     h1 { font-size:20px; }
     .tag { font-size:10px; padding:4px 7px; }
+    .mode-row { gap:6px; margin:7px 0; }
+    .mode-btn { flex:1; padding:9px 7px; font-size:12px; }
     .stats { gap:5px; margin:7px 0; }
     .stat { padding:6px 8px; font-size:11px; border-radius:9px; }
     .game-shell { padding:5px; border-radius:13px; }
@@ -65,6 +69,7 @@
     <h1>🌀 BOMBER SPIN</h1>
     <span class="tag">ИГРОВОЙ ПРОТОТИП · v0.1</span>
   </header>
+  <div class="mode-row" aria-label="Режим игры"><button class="mode-btn active" id="soloMode">Одиночная игра</button><button class="mode-btn" id="botMode">🤖 Против бота</button></div>
   <div class="stats">
     <div class="stat">❤️ Жизни: <b id="hp">3</b></div>
     <div class="stat">💣 Бомб: <b id="bombs">1</b></div>
@@ -96,7 +101,7 @@
     </div>
     <div class="action-row"><button class="bomb-btn" id="bombButton" aria-label="Поставить бомбу">💣</button></div>
   </div>
-  <div class="notice">Демо: одиночная игра с процедурным полем. Онлайн-игроков пока нет.</div>
+  <div class="notice" id="modeNotice">Одиночная игра · процедурное поле</div>
 </div>
 <script>
 (() => {
@@ -104,10 +109,11 @@
   const COLS=15, ROWS=10, TILE=48;
   canvas.width=COLS*TILE; canvas.height=ROWS*TILE;
   const el = id => document.getElementById(id);
-  let grid, player, bombs, flames, bonuses, keys, lastTime, gameOver, bonusCount, invuln, moveDir, touchDir, elapsed;
+  let grid, player, bot, gameMode="solo", bombs, flames, bonuses, keys, lastTime, gameOver, bonusCount, invuln, moveDir, touchDir, elapsed;
   const dirs={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
   const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
   const keyCell=(x,y)=>`${x},${y}`;
+  function setMode(mode){gameMode=mode;el("soloMode").classList.toggle("active",mode==="solo");el("botMode").classList.toggle("active",mode==="bot");reset();}
   function reset(){
     grid=Array.from({length:ROWS},(_,y)=>Array.from({length:COLS},(_,x)=>{
       if(x===0||y===0||x===COLS-1||y===ROWS-1) return 2;
@@ -124,6 +130,8 @@
     for(let x=1;x<6;x++) grid[1][x]=0;
     for(let y=1;y<5;y++) grid[y][1]=0;
     player={x:1.5*TILE,y:1.5*TILE,r:13,angle:0,hp:3,maxBombs:1,activeBombs:0,range:2,speed:180};
+    bot={x:(COLS-2.5)*TILE,y:(ROWS-2.5)*TILE,r:13,angle:Math.PI,hp:3,maxBombs:1,activeBombs:0,range:2,speed:145,think:0,target:null,alive:gameMode==="bot",invuln:0};
+    for(let y=ROWS-4;y<ROWS-1;y++)for(let x=COLS-4;x<COLS-1;x++)if(grid[y][x]===1)grid[y][x]=0;
     bombs=[]; flames=[]; bonuses=[]; keys={}; lastTime=performance.now(); gameOver=false; bonusCount=0; invuln=0; moveDir=null; touchDir=null; elapsed=0;
     el('overlay').style.display='none'; updateStats();
   }
@@ -180,11 +188,17 @@
     if(gameOver||player.activeBombs>=player.maxBombs) return;
     const x=Math.floor(player.x/TILE),y=Math.floor(player.y/TILE);
     if(bombs.some(b=>b.x===x&&b.y===y)) return;
-    bombs.push({x,y,t:2.05,range:player.range,exploded:false,escape:true});
+    bombs.push({x,y,t:2.05,range:player.range,exploded:false,escape:true,owner:"player"});
     player.activeBombs++; updateStats();
   }
+  function botPlaceBomb(){
+    if(!bot.alive||gameOver||bot.activeBombs>=bot.maxBombs)return;
+    const x=Math.floor(bot.x/TILE),y=Math.floor(bot.y/TILE);
+    if(bombs.some(b=>b.x===x&&b.y===y&&!b.exploded))return;
+    bombs.push({x,y,t:2.05,range:bot.range,exploded:false,escape:true,owner:"bot"});bot.activeBombs++;
+  }
   function explode(b){
-    b.exploded=true; player.activeBombs=Math.max(0,player.activeBombs-1);
+    b.exploded=true;if(b.owner==="bot")bot.activeBombs=Math.max(0,bot.activeBombs-1);else player.activeBombs=Math.max(0,player.activeBombs-1);
     const cells=[[b.x,b.y]];
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
       for(let i=1;i<=b.range;i++){
@@ -204,10 +218,22 @@
     flames.push({cells,t:.58});
     updateStats();
   }
-  function damage(){
-    if(invuln>0||gameOver) return;
-    player.hp--; invuln=1.5; updateStats();
-    if(player.hp<=0){ gameOver=true; el('overlayTitle').textContent='Волчок выбыл!'; el('overlayText').textContent='Ящики разрушены, но взрывы опасны. Попробуй ещё раз.'; el('overlay').style.display='flex'; }
+  function finishRound(winner){if(gameOver)return;gameOver=true;el("overlayTitle").textContent=winner==="player"?"🏆 Ты победил!":"🤖 Бот победил!";el("overlayText").textContent=winner==="player"?"Бот выбыл. Отличная битва!":"Твой волчок выбыл. Попробуй ещё раз!";el("overlay").style.display="flex";}
+  function damage(){if(invuln>0||gameOver)return;player.hp--;invuln=1.5;updateStats();if(player.hp<=0){if(gameMode==="bot")finishRound("bot");else{gameOver=true;el("overlayTitle").textContent="Волчок выбыл!";el("overlayText").textContent="Ящики разрушены, но взрывы опасны. Попробуй ещё раз.";el("overlay").style.display="flex";}}}
+  function botDamage(){if(!bot.alive||bot.invuln>0||gameOver)return;bot.hp--;bot.invuln=1.1;if(bot.hp<=0){bot.alive=false;finishRound("player");}}
+  function botBlocked(tx,ty){const r=bot.r-3;const minX=Math.floor((tx-r)/TILE),maxX=Math.floor((tx+r)/TILE),minY=Math.floor((ty-r)/TILE),maxY=Math.floor((ty+r)/TILE);for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(x<0||y<0||x>=COLS||y>=ROWS||grid[y][x]!==0)return true;}for(const b of bombs){if(b.exploded)continue;const bx=(b.x+.5)*TILE,by=(b.y+.5)*TILE;if(b.escape&&b.owner==="bot"&&Math.hypot(bot.x-bx,bot.y-by)<TILE/2+bot.r+3)continue;if(Math.hypot(tx-bx,ty-by)<r+16)return true;}return false;}
+  function updateBot(dt){
+    if(gameMode!=="bot"||!bot.alive||gameOver)return;
+    bot.invuln=Math.max(0,bot.invuln-dt);bot.think-=dt;
+    const bx=Math.floor(bot.x/TILE),by=Math.floor(bot.y/TILE),px=Math.floor(player.x/TILE),py=Math.floor(player.y/TILE);
+    const inFlame=flames.some(f=>f.cells.some(([x,y])=>x===bx&&y===by));
+    const nearBomb=bombs.some(b=>!b.exploded&&b.t<.9&&Math.abs(b.x-bx)+Math.abs(b.y-by)<=1);
+    if(inFlame||nearBomb){const choices=[[1,0],[-1,0],[0,1],[0,-1]].map(([x,y])=>({x:bot.x+x*TILE,y:bot.y+y*TILE})).filter(p=>!botBlocked(p.x,p.y));if(choices.length){const p=choices[rand(0,choices.length-1)];bot.target={x:Math.floor(p.x/TILE),y:Math.floor(p.y/TILE)};bot.think=.1;}}
+    if(bot.think<=0||!bot.target){bot.think=.3+Math.random()*.25;const targets=[];for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++){if(grid[y][x]===1)targets.push({x,y,kind:"crate"});if(bonuses.some(b=>b.x===x&&b.y===y))targets.push({x,y,kind:"bonus"});}if(Math.abs(bx-px)+Math.abs(by-py)<=4&&Math.random()<.6)targets.push({x:px,y:py,kind:"player"});targets.sort((a,b)=>(Math.abs(a.x-bx)+Math.abs(a.y-by))-(Math.abs(b.x-bx)+Math.abs(b.y-by)));bot.target=targets.find(t=>Math.abs(t.x-bx)+Math.abs(t.y-by)>0&&Math.abs(t.x-bx)+Math.abs(t.y-by)<9)||{x:COLS-2,y:ROWS-2};}
+    const tx=(bot.target.x+.5)*TILE,ty=(bot.target.y+.5)*TILE;let dx=tx-bot.x,dy=ty-bot.y;
+    const adjacentCrate=[[1,0],[-1,0],[0,1],[0,-1]].some(([x,y])=>grid[by+y]?.[bx+x]===1);
+    if((adjacentCrate&&Math.random()<.018)||(Math.abs(bx-px)+Math.abs(by-py)<=2&&Math.random()<.045))botPlaceBomb();
+    if(Math.hypot(dx,dy)>4){const len=Math.hypot(dx,dy);dx/=len;dy/=len;bot.angle=Math.atan2(dy,dx);const nx=bot.x+dx*bot.speed*dt,ny=bot.y+dy*bot.speed*dt;if(!botBlocked(nx,bot.y))bot.x=nx;if(!botBlocked(bot.x,ny))bot.y=ny;}
   }
   function update(dt){
     if(gameOver) return;
@@ -234,13 +260,13 @@
         if(Math.hypot(player.x-bx,player.y-by)>=TILE/2+player.r+3) b.escape=false;
       }
     }
+    updateBot(dt);
+    for(const b of bombs){if(!b.exploded&&b.escape){const actor=b.owner==="bot"?bot:player;if(actor&&Math.hypot(actor.x-(b.x+.5)*TILE,actor.y-(b.y+.5)*TILE)>=TILE/2+actor.r+3)b.escape=false;}}
     bombs.forEach(b=>{b.t-=dt;if(b.t<=0&&!b.exploded) explode(b);});
     bombs=bombs.filter(b=>!b.exploded);
     flames.forEach(f=>f.t-=dt);
     flames=flames.filter(f=>f.t>0);
-    for(const f of flames) for(const [x,y] of f.cells){
-      if(player.x>(x*TILE+5)&&player.x<((x+1)*TILE-5)&&player.y>(y*TILE+5)&&player.y<((y+1)*TILE-5)) damage();
-    }
+    for(const f of flames)for(const [x,y] of f.cells){if(player.x>x*TILE+5&&player.x<(x+1)*TILE-5&&player.y>y*TILE+5&&player.y<(y+1)*TILE-5)damage();if(gameMode==="bot"&&bot.alive&&bot.x>x*TILE+5&&bot.x<(x+1)*TILE-5&&bot.y>y*TILE+5&&bot.y<(y+1)*TILE-5)botDamage();}
     bonuses.forEach(b=>b.t-=dt);
     bonuses=bonuses.filter(b=>b.t>0);
     bonuses=bonuses.filter(b=>{
@@ -299,6 +325,8 @@
       ctx.fillStyle=`rgba(255,104,47,${Math.min(.8,f.t*1.5)})`;ctx.fillRect(x*TILE+3,y*TILE+3,TILE-6,TILE-6);
       ctx.fillStyle=`rgba(255,224,104,${Math.min(.95,f.t*1.7)})`;ctx.fillRect(x*TILE+13,y*TILE+13,TILE-26,TILE-26);
     }
+    // Bot shadow + top
+    if(gameMode==="bot"&&bot.alive){ctx.save();ctx.translate(bot.x,bot.y);ctx.fillStyle="#0007";ctx.beginPath();ctx.ellipse(2,5,18,14,0,0,Math.PI*2);ctx.fill();if(bot.invuln>0&&Math.floor(elapsed*12)%2===0)ctx.globalAlpha=.45;ctx.rotate(-elapsed*6);ctx.fillStyle="#ff8a54";ctx.beginPath();ctx.arc(0,0,18,0,Math.PI*2);ctx.fill();ctx.fillStyle="#a94332";ctx.beginPath();ctx.arc(0,0,13,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff0df";ctx.beginPath();ctx.arc(0,0,7,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#ffd0a9";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-15,0);ctx.lineTo(15,0);ctx.moveTo(0,-15);ctx.lineTo(0,15);ctx.stroke();ctx.restore();}
     // player shadow + top
     const px=player.x,py=player.y;
     ctx.save();ctx.translate(px,py);
@@ -328,6 +356,7 @@
   });
   window.addEventListener('keyup',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;keys[k]=false;});
   el('bombButton').addEventListener('pointerdown',e=>{e.preventDefault();placeBomb();});
+  el("soloMode").addEventListener("click",()=>setMode("solo"));el("botMode").addEventListener("click",()=>setMode("bot"));
   el('restart').addEventListener('click',reset); el('overlayRestart').addEventListener('click',reset);
   // Analog-style touch joystick. Movement follows the direction while the stick is held.
   const joystick=document.querySelector('#joystick');
