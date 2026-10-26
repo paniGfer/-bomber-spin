@@ -125,7 +125,6 @@
   function canMove(nx,ny){
     const r=player.r-2;
     function blocked(tx,ty){
-      // Проверяем круг игрока относительно каждого ближайшего препятствия.
       const minX=Math.floor((tx-r)/TILE), maxX=Math.floor((tx+r)/TILE);
       const minY=Math.floor((ty-r)/TILE), maxY=Math.floor((ty+r)/TILE);
       for(let y=minY;y<=maxY;y++) for(let x=minX;x<=maxX;x++){
@@ -152,18 +151,19 @@
       }
       return false;
     }
-    // X и Y двигаются отдельно маленькими шагами. Это помогает проходить углы
-    // и не даёт застревать из-за слишком большого шага за один кадр.
-    const stepX=nx-player.x, stepY=ny-player.y;
-    const countX=Math.max(1,Math.ceil(Math.abs(stepX)/2));
+    // Важно: шаги считаются от начальной позиции, а не от уже сдвинутой.
+    // Иначе каждый маленький шаг прибавлялся повторно и волчок застревал у углов.
+    const startX=player.x, startY=player.y;
+    const dx=nx-startX, dy=ny-startY;
+    const countX=Math.max(1,Math.ceil(Math.abs(dx)/2));
     for(let i=1;i<=countX;i++){
-      const tx=player.x+stepX/countX;
+      const tx=startX+dx*i/countX;
       if(!blocked(tx,player.y)) player.x=tx;
       else break;
     }
-    const countY=Math.max(1,Math.ceil(Math.abs(stepY)/2));
+    const countY=Math.max(1,Math.ceil(Math.abs(dy)/2));
     for(let i=1;i<=countY;i++){
-      const ty=player.y+stepY/countY;
+      const ty=startY+dy*i/countY;
       if(!blocked(player.x,ty)) player.y=ty;
       else break;
     }
