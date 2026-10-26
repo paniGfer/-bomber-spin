@@ -125,6 +125,7 @@
   function canMove(nx,ny){
     const r=player.r-2;
     function blocked(tx,ty){
+      // Проверяем круг игрока относительно каждого ближайшего препятствия.
       const minX=Math.floor((tx-r)/TILE), maxX=Math.floor((tx+r)/TILE);
       const minY=Math.floor((ty-r)/TILE), maxY=Math.floor((ty+r)/TILE);
       for(let y=minY;y<=maxY;y++) for(let x=minX;x<=maxX;x++){
@@ -133,30 +134,38 @@
         const left=x*TILE, top=y*TILE, right=left+TILE, bottom=top+TILE;
         const cx=Math.max(left,Math.min(tx,right));
         const cy=Math.max(top,Math.min(ty,bottom));
-        if((tx-cx)**2+(ty-cy)**2<r*r) return true;
+        if((tx-cx)*(tx-cx)+(ty-cy)*(ty-cy)<r*r) return true;
       }
       for(const bomb of bombs){
         if(bomb.exploded) continue;
         const left=bomb.x*TILE, top=bomb.y*TILE, right=left+TILE, bottom=top+TILE;
         const cx=Math.max(left,Math.min(tx,right));
         const cy=Math.max(top,Math.min(ty,bottom));
-        if((tx-cx)**2+(ty-cy)**2>=r*r) continue;
+        if((tx-cx)*(tx-cx)+(ty-cy)*(ty-cy)>=r*r) continue;
         if(bomb.escape){
-          const inside=player.x+r>left&&player.x-r<right&&player.y+r>top&&player.y-r<bottom;
-          const oldD=Math.hypot(player.x-(bomb.x+.5)*TILE,player.y-(bomb.y+.5)*TILE);
-          const newD=Math.hypot(tx-(bomb.x+.5)*TILE,ty-(bomb.y+.5)*TILE);
-          if(inside&&newD>oldD+0.01) continue;
+          const overlapsNow=player.x+r>left&&player.x-r<right&&player.y+r>top&&player.y-r<bottom;
+          const oldDist=Math.hypot(player.x-(bomb.x+.5)*TILE,player.y-(bomb.y+.5)*TILE);
+          const newDist=Math.hypot(tx-(bomb.x+.5)*TILE,ty-(bomb.y+.5)*TILE);
+          if(overlapsNow&&newDist>oldDist+0.01) continue;
         }
         return true;
       }
       return false;
     }
-    const dx=nx-player.x, dy=ny-player.y;
-    const steps=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))/3));
-    for(let i=1;i<=steps;i++){
-      const tx=player.x+dx*i/steps, ty=player.y+dy*i/steps;
+    // X и Y двигаются отдельно маленькими шагами. Это помогает проходить углы
+    // и не даёт застревать из-за слишком большого шага за один кадр.
+    const stepX=nx-player.x, stepY=ny-player.y;
+    const countX=Math.max(1,Math.ceil(Math.abs(stepX)/2));
+    for(let i=1;i<=countX;i++){
+      const tx=player.x+stepX/countX;
       if(!blocked(tx,player.y)) player.x=tx;
+      else break;
+    }
+    const countY=Math.max(1,Math.ceil(Math.abs(stepY)/2));
+    for(let i=1;i<=countY;i++){
+      const ty=player.y+stepY/countY;
       if(!blocked(player.x,ty)) player.y=ty;
+      else break;
     }
   }
   function placeBomb(){
