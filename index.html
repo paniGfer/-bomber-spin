@@ -137,21 +137,17 @@
       }
       for(const bomb of bombs){
         if(bomb.exploded) continue;
-        const left=bomb.x*TILE, top=bomb.y*TILE, right=left+TILE, bottom=top+TILE;
-        // If this is the bomb the player just placed on their own tile, ignore
-        // its collision until the player has completely left that tile.
-        // Walls/crates are still checked above, so escape works beside obstacles.
+        const bx=(bomb.x+0.5)*TILE, by=(bomb.y+0.5)*TILE;
+        // Let the player who placed this bomb get safely beyond its blast-sized
+        // body before enabling collision. Use the bomb's drawn circular shape,
+        // not the entire tile, as a solid obstacle.
         if(bomb.escape){
-          // Keep ignoring this bomb while any part of the player's collision circle
-          // overlaps its tile. Otherwise the bomb blocks the player halfway out.
-          const overlapsTile = player.x+r>left && player.x-r<right &&
-                               player.y+r>top && player.y-r<bottom;
-          if(overlapsTile) continue;
+          const escapeDistance=TILE/2+player.r+3;
+          if(Math.hypot(player.x-bx,player.y-by)<escapeDistance) continue;
         }
-        const cx=Math.max(left,Math.min(tx,right));
-        const cy=Math.max(top,Math.min(ty,bottom));
-        const dx=tx-cx, dy=ty-cy;
-        if(dx*dx+dy*dy<r*r) return true;
+        const dx=tx-bx, dy=ty-by;
+        const minDistance=r+16;
+        if(dx*dx+dy*dy<minDistance*minDistance) return true;
       }
       return false;
     }
@@ -221,15 +217,12 @@
       player.angle=Math.atan2(dy,dx);
       canMove(player.x+dx*player.speed*dt,player.y+dy*player.speed*dt);
     }
-    // Stop ignoring the bomb only when the player's collision circle no longer
-    // overlaps the bomb tile, using the same overlap test as canMove().
+    // Enable bomb collision only after the player has moved safely away from
+    // the bomb's circular body. This avoids trapping them at the tile boundary.
     for(const b of bombs){
       if(!b.exploded && b.escape){
-        const r=player.r-4;
-        const left=b.x*TILE, top=b.y*TILE, right=left+TILE, bottom=top+TILE;
-        const overlapsTile = player.x+r>left && player.x-r<right &&
-                             player.y+r>top && player.y-r<bottom;
-        if(!overlapsTile) b.escape=false;
+        const bx=(b.x+0.5)*TILE, by=(b.y+0.5)*TILE;
+        if(Math.hypot(player.x-bx,player.y-by)>=TILE/2+player.r+3) b.escape=false;
       }
     }
     bombs.forEach(b=>{b.t-=dt;if(b.t<=0&&!b.exploded) explode(b);});
