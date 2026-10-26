@@ -114,7 +114,7 @@
     const x=Math.floor(px/TILE),y=Math.floor(py/TILE);
     if(x<0||y<0||x>=COLS||y>=ROWS) return true;
     if(grid[y][x]!==0) return true;
-    return bombs.some(b=>!b.exploded && Math.floor(b.x)===x && Math.floor(b.y)===y && !(Math.abs(player.x-(b.x+.5)*TILE)<TILE*.36 && Math.abs(player.y-(b.y+.5)*TILE)<TILE*.36));
+    return bombs.some(b=>!b.exploded && Math.floor(b.x)===x && Math.floor(b.y)===y && !(player.x>b.x*TILE-player.r && player.x<(b.x+1)*TILE+player.r && player.y>b.y*TILE-player.r && player.y<(b.y+1)*TILE+player.r));
   }
   function canMove(nx,ny){
     const r=player.r-2;
