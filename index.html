@@ -131,7 +131,8 @@
     for(let y=1;y<5;y++) grid[y][1]=0;
     player={x:1.5*TILE,y:1.5*TILE,r:13,angle:0,hp:3,maxBombs:1,activeBombs:0,range:2,speed:180};
     bot={x:(COLS-2.5)*TILE,y:(ROWS-2.5)*TILE,r:13,angle:Math.PI,hp:3,maxBombs:1,activeBombs:0,range:2,speed:165,think:0,target:null,alive:gameMode==="bot",invuln:0};
-    for(let y=ROWS-4;y<ROWS-1;y++)for(let x=COLS-4;x<COLS-1;x++)if(grid[y][x]===1)grid[y][x]=0;
+    // Keep the bot spawn tile clear, but leave nearby crates so it can open its starting area.
+    grid[ROWS-2][COLS-2]=0;
     bombs=[]; flames=[]; bonuses=[]; keys={}; lastTime=performance.now(); gameOver=false; bonusCount=0; invuln=0; moveDir=null; touchDir=null; elapsed=0;
     el('overlay').style.display='none'; updateStats();
   }
@@ -249,9 +250,10 @@
         safe.sort((a,b)=>b.path.length-a.path.length);bot.target=safe[0]?{x:safe[0].x,y:safe[0].y,escape:true}:null;
       }else{
         const targets=[];
+        const openingPhase=elapsed<18;
         for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++){
           if(grid[y][x]===0&&bonuses.some(b=>b.x===x&&b.y===y))targets.push({x,y,kind:"bonus",priority:0});
-          if(grid[y][x]===1&&[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>grid[y+dy]?.[x+dx]===0))targets.push({x,y,kind:"crate",priority:2});
+          if(grid[y][x]===1&&[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>grid[y+dy]?.[x+dx]===0)){const nearBot=Math.abs(x-bx)+Math.abs(y-by);targets.push({x,y,kind:"crate",priority:openingPhase&&nearBot<=4?0.2:2});}
         }
         if(Math.abs(bx-px)+Math.abs(by-py)<=7)targets.push({x:px,y:py,kind:"player",priority:1});
         const reachable=targets.map(t=>{if(t.kind==="crate"){const around=[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>({x:t.x+dx,y:t.y+dy})).filter(p=>grid[p.y]?.[p.x]===0);const paths=around.map(p=>({...p,path:botPath(bx,by,p.x,p.y)})).filter(p=>p.path.length);paths.sort((a,b)=>a.path.length-b.path.length);return paths.length?{...t,goal:paths[0],path:paths[0].path}:null;}const path=botPath(bx,by,t.x,t.y);return path.length?{...t,goal:{x:t.x,y:t.y},path}:null;}).filter(Boolean);
