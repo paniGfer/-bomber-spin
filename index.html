@@ -221,19 +221,48 @@
   function finishRound(winner){if(gameOver)return;gameOver=true;el("overlayTitle").textContent=winner==="player"?"🏆 Ты победил!":"🤖 Бот победил!";el("overlayText").textContent=winner==="player"?"Бот выбыл. Отличная битва!":"Твой волчок выбыл. Попробуй ещё раз!";el("overlay").style.display="flex";}
   function damage(){if(invuln>0||gameOver)return;player.hp--;invuln=1.5;updateStats();if(player.hp<=0){if(gameMode==="bot")finishRound("bot");else{gameOver=true;el("overlayTitle").textContent="Волчок выбыл!";el("overlayText").textContent="Ящики разрушены, но взрывы опасны. Попробуй ещё раз.";el("overlay").style.display="flex";}}}
   function botDamage(){if(!bot.alive||bot.invuln>0||gameOver)return;bot.hp--;bot.invuln=1.1;if(bot.hp<=0){bot.alive=false;finishRound("player");}}
-  function botBlocked(tx,ty){const r=bot.r-3;const minX=Math.floor((tx-r)/TILE),maxX=Math.floor((tx+r)/TILE),minY=Math.floor((ty-r)/TILE),maxY=Math.floor((ty+r)/TILE);for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){if(x<0||y<0||x>=COLS||y>=ROWS||grid[y][x]!==0)return true;}for(const b of bombs){if(b.exploded)continue;const bx=(b.x+.5)*TILE,by=(b.y+.5)*TILE;if(b.escape&&b.owner==="bot"&&Math.hypot(bot.x-bx,bot.y-by)<TILE/2+bot.r+3)continue;if(Math.hypot(tx-bx,ty-by)<r+16)return true;}return false;}
+  function botBlocked(tx,ty){
+    const r=bot.r-3,minX=Math.floor((tx-r)/TILE),maxX=Math.floor((tx+r)/TILE),minY=Math.floor((ty-r)/TILE),maxY=Math.floor((ty+r)/TILE);
+    for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++)if(x<0||y<0||x>=COLS||y>=ROWS||grid[y][x]!==0)return true;
+    for(const b of bombs){if(b.exploded)continue;const bx=(b.x+.5)*TILE,by=(b.y+.5)*TILE;if(b.owner==="bot"&&b.escape&&Math.hypot(bot.x-bx,bot.y-by)<TILE/2+bot.r+5)continue;if(Math.hypot(tx-bx,ty-by)<r+18)return true;}
+    return false;
+  }
+  function botPath(sx,sy,tx,ty){
+    const q=[{x:sx,y:sy}],prev=new Map([[keyCell(sx,sy),null]]);let found=null;
+    for(let i=0;i<q.length;i++){const p=q[i];if(p.x===tx&&p.y===ty){found=p;break;}
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const x=p.x+dx,y=p.y+dy,k=keyCell(x,y);if(x<1||y<1||x>=COLS-1||y>=ROWS-1||prev.has(k)||grid[y][x]!==0||bombs.some(b=>!b.exploded&&b.x===x&&b.y===y))continue;prev.set(k,keyCell(p.x,p.y));q.push({x,y});}
+    }
+    if(!found)return [];const path=[];let k=keyCell(found.x,found.y);while(k&&k!==keyCell(sx,sy)){const [x,y]=k.split(",").map(Number);path.unshift({x,y});k=prev.get(k);}return path;
+  }
   function updateBot(dt){
     if(gameMode!=="bot"||!bot.alive||gameOver)return;
     bot.invuln=Math.max(0,bot.invuln-dt);bot.think-=dt;
     const bx=Math.floor(bot.x/TILE),by=Math.floor(bot.y/TILE),px=Math.floor(player.x/TILE),py=Math.floor(player.y/TILE);
-    const inFlame=flames.some(f=>f.cells.some(([x,y])=>x===bx&&y===by));
-    const nearBomb=bombs.some(b=>!b.exploded&&b.t<.9&&Math.abs(b.x-bx)+Math.abs(b.y-by)<=1);
-    if(inFlame||nearBomb){const choices=[[1,0],[-1,0],[0,1],[0,-1]].map(([x,y])=>({x:bot.x+x*TILE,y:bot.y+y*TILE})).filter(p=>!botBlocked(p.x,p.y));if(choices.length){const p=choices[rand(0,choices.length-1)];bot.target={x:Math.floor(p.x/TILE),y:Math.floor(p.y/TILE)};bot.think=.1;}}
-    if(bot.think<=0||!bot.target){bot.think=.3+Math.random()*.25;const targets=[];for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++){if(grid[y][x]===1)targets.push({x,y,kind:"crate"});if(bonuses.some(b=>b.x===x&&b.y===y))targets.push({x,y,kind:"bonus"});}if(Math.abs(bx-px)+Math.abs(by-py)<=4&&Math.random()<.6)targets.push({x:px,y:py,kind:"player"});targets.sort((a,b)=>(Math.abs(a.x-bx)+Math.abs(a.y-by))-(Math.abs(b.x-bx)+Math.abs(b.y-by)));bot.target=targets.find(t=>Math.abs(t.x-bx)+Math.abs(t.y-by)>0&&Math.abs(t.x-bx)+Math.abs(t.y-by)<9)||{x:COLS-2,y:ROWS-2};}
-    const tx=(bot.target.x+.5)*TILE,ty=(bot.target.y+.5)*TILE;let dx=tx-bot.x,dy=ty-bot.y;
-    const adjacentCrate=[[1,0],[-1,0],[0,1],[0,-1]].some(([x,y])=>grid[by+y]?.[bx+x]===1);
-    if((adjacentCrate&&Math.random()<.018)||(Math.abs(bx-px)+Math.abs(by-py)<=2&&Math.random()<.045))botPlaceBomb();
-    if(Math.hypot(dx,dy)>4){const len=Math.hypot(dx,dy);dx/=len;dy/=len;bot.angle=Math.atan2(dy,dx);const nx=bot.x+dx*bot.speed*dt,ny=bot.y+dy*bot.speed*dt;if(!botBlocked(nx,bot.y))bot.x=nx;if(!botBlocked(bot.x,ny))bot.y=ny;}
+    const danger=new Set();
+    for(const b of bombs){if(b.exploded)continue;if(b.t<1.25){danger.add(keyCell(b.x,b.y));for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])for(let i=1;i<=b.range;i++){const x=b.x+dx*i,y=b.y+dy*i;if(x<0||y<0||x>=COLS||y>=ROWS||grid[y][x]===2)break;danger.add(keyCell(x,y));if(grid[y][x]===1)break;}}}
+    for(const f of flames)for(const [x,y] of f.cells)danger.add(keyCell(x,y));
+    const threatened=danger.has(keyCell(bx,by));
+    if(threatened||bot.think<=0||!bot.target){
+      bot.think=.22;
+      if(threatened){
+        const safe=[];for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++){if(grid[y][x]!==0||danger.has(keyCell(x,y)))continue;const path=botPath(bx,by,x,y);if(path.length)safe.push({x,y,path});}
+        safe.sort((a,b)=>a.path.length-b.path.length);bot.target=safe[0]?{x:safe[0].x,y:safe[0].y,escape:true}:null;
+      }else{
+        const targets=[];
+        for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++){
+          if(grid[y][x]===0&&bonuses.some(b=>b.x===x&&b.y===y))targets.push({x,y,kind:"bonus",priority:0});
+          if(grid[y][x]===1&&[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>grid[y+dy]?.[x+dx]===0))targets.push({x,y,kind:"crate",priority:2});
+        }
+        if(Math.abs(bx-px)+Math.abs(by-py)<=5)targets.push({x:px,y:py,kind:"player",priority:1});
+        const reachable=targets.map(t=>{if(t.kind==="crate"){const around=[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>({x:t.x+dx,y:t.y+dy})).filter(p=>grid[p.y]?.[p.x]===0);const paths=around.map(p=>({...p,path:botPath(bx,by,p.x,p.y)})).filter(p=>p.path.length);paths.sort((a,b)=>a.path.length-b.path.length);return paths.length?{...t,goal:paths[0],path:paths[0].path}:null;}const path=botPath(bx,by,t.x,t.y);return path.length?{...t,goal:{x:t.x,y:t.y},path}:null;}).filter(Boolean);
+        reachable.sort((a,b)=>(a.priority*3+a.path.length)-(b.priority*3+b.path.length));bot.target=reachable[0]||null;
+      }
+    }
+    if(!bot.target)return;
+    let path=botPath(bx,by,bot.target.goal?bot.target.goal.x:bot.target.x,bot.target.goal?bot.target.goal.y:bot.target.y);
+    if(path.length){const step=path[0],tx=(step.x+.5)*TILE,ty=(step.y+.5)*TILE;let dx=tx-bot.x,dy=ty-bot.y;const len=Math.hypot(dx,dy)||1;dx/=len;dy/=len;bot.angle=Math.atan2(dy,dx);const speed=threatened?bot.speed*1.35:bot.speed;const nx=bot.x+dx*speed*dt,ny=bot.y+dy*speed*dt;if(!botBlocked(nx,bot.y))bot.x=nx;if(!botBlocked(bot.x,ny))bot.y=ny;}
+    const nowX=Math.floor(bot.x/TILE),nowY=Math.floor(bot.y/TILE),crateNearby=[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>grid[nowY+dy]?.[nowX+dx]===1),playerNearby=Math.abs(nowX-px)+Math.abs(nowY-py)<=2;
+    if(!threatened&&bot.activeBombs===0&&(crateNearby||playerNearby)&&Math.random()<.012){botPlaceBomb();bot.target=null;bot.think=0;}
   }
   function update(dt){
     if(gameOver) return;
