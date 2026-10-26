@@ -113,7 +113,7 @@
   const dirs={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
   const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
   const keyCell=(x,y)=>`${x},${y}`;
-  function setMode(mode){gameMode=mode;el("soloMode").classList.toggle("active",mode==="solo");el("botMode").classList.toggle("active",mode==="bot");reset();}
+  function setMode(mode){gameMode=mode;el("soloMode").classList.toggle("active",mode==="solo");el("botMode").classList.toggle("active",mode==="bot");el("modeNotice").textContent=mode==="bot"?"Против бота · у каждого по 3 жизни":"Одиночная игра · процедурное поле";reset();}
   function reset(){
     grid=Array.from({length:ROWS},(_,y)=>Array.from({length:COLS},(_,x)=>{
       if(x===0||y===0||x===COLS-1||y===ROWS-1) return 2;
