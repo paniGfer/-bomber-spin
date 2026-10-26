@@ -126,7 +126,17 @@
     const x=Math.floor(px/TILE),y=Math.floor(py/TILE);
     if(x<0||y<0||x>=COLS||y>=ROWS) return true;
     if(grid[y][x]!==0) return true;
-    return bombs.some(b=>!b.exploded && b.x===x && b.y===y && !(Math.floor(player.x/TILE)===b.x && Math.floor(player.y/TILE)===b.y));
+    // A bomb blocks its tile, except while the player is still overlapping the tile
+    // where that bomb was placed. This lets the player escape without getting stuck.
+    return bombs.some(b=>{
+      if(b.exploded || b.x!==x || b.y!==y) return false;
+      const playerStillOverlapsBombTile =
+        player.x+player.r > b.x*TILE &&
+        player.x-player.r < (b.x+1)*TILE &&
+        player.y+player.r > b.y*TILE &&
+        player.y-player.r < (b.y+1)*TILE;
+      return !playerStillOverlapsBombTile;
+    });
   }
   function canMove(nx,ny){
     const r=player.r-2;
