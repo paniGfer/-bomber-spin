@@ -220,12 +220,16 @@
       player.angle=Math.atan2(dy,dx);
       canMove(player.x+dx*player.speed*dt,player.y+dy*player.speed*dt);
     }
-    // Let the player leave the bomb's tile once; then the bomb becomes solid.
+    // Keep the newly placed bomb passable until the whole player collision circle
+    // has cleared its tile. Disabling escape when only the center leaves traps the
+    // player against the bomb's edge.
     for(const b of bombs){
       if(!b.exploded && b.escape){
+        const r=player.r-4;
         const left=b.x*TILE, top=b.y*TILE, right=left+TILE, bottom=top+TILE;
-        const centerOutside = player.x<left || player.x>=right || player.y<top || player.y>=bottom;
-        if(centerOutside) b.escape=false;
+        const fullyOutside = player.x < left-r || player.x > right+r ||
+                             player.y < top-r || player.y > bottom+r;
+        if(fullyOutside) b.escape=false;
       }
     }
     bombs.forEach(b=>{b.t-=dt;if(b.t<=0&&!b.exploded) explode(b);});
