@@ -122,25 +122,31 @@
     el('hp').textContent=player.hp; el('bombs').textContent=player.maxBombs-player.activeBombs+'/'+player.maxBombs;
     el('range').textContent=player.range; el('speed').textContent=Math.round(player.speed); el('bonusCount').textContent=bonusCount;
   }
-  function solidAt(px,py){
-    const x=Math.floor(px/TILE),y=Math.floor(py/TILE);
-    if(x<0||y<0||x>=COLS||y>=ROWS) return true;
-    return grid[y][x]!==0;
-  }
   function canMove(nx,ny){
     const r=player.r-2;
     function blocked(tx,ty){
-      // Walls and crates.
-      if(solidAt(tx-r,ty-r)||solidAt(tx+r,ty-r)||solidAt(tx-r,ty+r)||solidAt(tx+r,ty+r)) return true;
-      // Bombs use their full tile as a collision box, not just the sampled corners.
+      // Проверяем настоящее столкновение круга игрока с каждым соседним тайлом.
+      // Это позволяет скользить вдоль стен и не застревать в углах.
+      const minX=Math.floor((tx-r)/TILE), maxX=Math.floor((tx+r)/TILE);
+      const minY=Math.floor((ty-r)/TILE), maxY=Math.floor((ty+r)/TILE);
+      for(let y=minY;y<=maxY;y++) for(let x=minX;x<=maxX;x++){
+        if(x<0||y<0||x>=COLS||y>=ROWS) return true;
+        if(grid[y][x]===0) continue;
+        const left=x*TILE, top=y*TILE, right=left+TILE, bottom=top+TILE;
+        const closestX=Math.max(left,Math.min(tx,right));
+        const closestY=Math.max(top,Math.min(ty,bottom));
+        const dx=tx-closestX, dy=ty-closestY;
+        if(dx*dx+dy*dy<r*r) return true;
+      }
       for(const b of bombs){
         if(b.exploded) continue;
         const left=b.x*TILE, top=b.y*TILE, right=left+TILE, bottom=top+TILE;
-        const overlaps=tx+r>left && tx-r<right && ty+r>top && ty-r<bottom;
-        if(!overlaps) continue;
+        const closestX=Math.max(left,Math.min(tx,right));
+        const closestY=Math.max(top,Math.min(ty,bottom));
+        const dx=tx-closestX, dy=ty-closestY;
+        if(dx*dx+dy*dy>=r*r) continue;
         if(b.escape){
-          // Escape is allowed only when moving away from the bomb, never toward or through it.
-          const wasOverlapping=player.x+ r>left && player.x-r<right && player.y+r>top && player.y-r<bottom;
+          const wasOverlapping=player.x+r>left && player.x-r<right && player.y+r>top && player.y-r<bottom;
           const oldDist=Math.hypot(player.x-(b.x+.5)*TILE,player.y-(b.y+.5)*TILE);
           const newDist=Math.hypot(tx-(b.x+.5)*TILE,ty-(b.y+.5)*TILE);
           if(wasOverlapping && newDist>oldDist+0.01) continue;
@@ -149,7 +155,7 @@
       }
       return false;
     }
-    // Move one axis at a time so the player can slide along obstacles.
+    // Оси двигаются отдельно: у стены можно продолжать движение вдоль неё.
     if(!blocked(nx,player.y)) player.x=nx;
     if(!blocked(player.x,ny)) player.y=ny;
   }
