@@ -22,7 +22,7 @@
   button { color:var(--text); background:#26344a; border:1px solid #455a78; border-radius:12px; padding:11px 15px; font-weight:700; cursor:pointer; touch-action:manipulation; }
   button:active { transform:translateY(1px); background:#354966; }
   .controls { display:none; grid-template-columns:repeat(3,54px); grid-template-rows:repeat(2,48px); gap:6px; justify-content:center; margin:14px auto 4px; }
-  .controls button { padding:0; font-size:20px; user-select:none; }
+  .controls button { padding:0; font-size:20px; user-select:none; touch-action:none; }
   .controls .empty { visibility:hidden; }
   .action-row { display:flex; justify-content:center; gap:10px; margin-top:10px; }
   .bomb-btn { background:#7d2c36; border-color:#b34d5a; min-width:112px; }
@@ -71,8 +71,9 @@
     <button class="restart" id="restart">↻ Начать заново</button>
   </div>
   <div class="controls" aria-label="Экранное управление">
-    <button class="empty">·</button><button data-dir="up">▲</button><button class="empty">·</button>
-    <button data-dir="left">◀</button><button data-dir="down">▼</button><button data-dir="right">▶</button>
+    <button class="empty">·</button><button data-stop="true" aria-label="Остановиться">■</button><button class="empty">·</button>
+    <button data-dir="left" aria-label="Влево">◀</button><button data-dir="down" aria-label="Вниз">▼</button><button data-dir="right" aria-label="Вправо">▶</button>
+    <button class="empty">·</button><button data-dir="up" aria-label="Вверх">▲</button><button class="empty">·</button>
   </div>
   <div class="action-row"><button class="bomb-btn" id="bombButton">💣 Поставить бомбу</button></div>
   <div class="notice">Демо: одиночная игра с процедурным полем. Онлайн-игроков пока нет.</div>
@@ -267,12 +268,17 @@
   window.addEventListener('keyup',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;keys[k]=false;});
   el('bombButton').addEventListener('pointerdown',e=>{e.preventDefault();placeBomb();});
   el('restart').addEventListener('click',reset); el('overlayRestart').addEventListener('click',reset);
+  // Tap-to-move controls: direction remains active until another direction or Stop is tapped.
   document.querySelectorAll('[data-dir]').forEach(btn=>{
-    const dir=btn.dataset.dir;
-    const start=e=>{e.preventDefault();touchDir=dir;};
-    const end=e=>{e.preventDefault();if(touchDir===dir)touchDir=null;};
-    btn.addEventListener('pointerdown',start);btn.addEventListener('pointerup',end);
-    btn.addEventListener('pointercancel',end);btn.addEventListener('pointerleave',end);
+    btn.addEventListener('pointerdown',e=>{
+      e.preventDefault();
+      touchDir = touchDir === btn.dataset.dir ? null : btn.dataset.dir;
+      moveDir = null;
+    });
+  });
+  const stopButton=document.querySelector('[data-stop]');
+  stopButton.addEventListener('pointerdown',e=>{
+    e.preventDefault(); touchDir=null; moveDir=null;
   });
   // Swipe controls: drag direction in the game area.
   let swipeStart=null;
