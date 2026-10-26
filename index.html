@@ -225,7 +225,7 @@
   function botBlocked(tx,ty){
     const r=bot.r-3,minX=Math.floor((tx-r)/TILE),maxX=Math.floor((tx+r)/TILE),minY=Math.floor((ty-r)/TILE),maxY=Math.floor((ty+r)/TILE);
     for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++)if(x<0||y<0||x>=COLS||y>=ROWS||grid[y][x]!==0)return true;
-    for(const b of bombs){if(b.exploded)continue;const bx=(b.x+.5)*TILE,by=(b.y+.5)*TILE;const nextDistance=Math.hypot(tx-bx,ty-by);if(b.owner==="bot"&&b.escape)continue;const currentDistance=Math.hypot(bot.x-bx,bot.y-by);if((bot.escapeMode||currentDistance<r+18)&&nextDistance>currentDistance+0.1)continue;if(nextDistance<r+18)return true;}
+    for(const b of bombs){if(b.exploded)continue;const bx=(b.x+.5)*TILE,by=(b.y+.5)*TILE;const nextDistance=Math.hypot(tx-bx,ty-by);if(b.owner==="bot"&&b.escape)continue;const currentDistance=Math.hypot(bot.x-bx,bot.y-by);if(currentDistance<r+18&&nextDistance>currentDistance+0.1)continue;if(nextDistance<r+18)return true;}
     return false;
   }
   function botPath(sx,sy,tx,ty){
@@ -245,7 +245,7 @@
     const threatened=danger.has(keyCell(bx,by));
     const nextStep=bot.target&&bot.target.step;
     const nextStepDanger=!!nextStep&&danger.has(keyCell(nextStep.x,nextStep.y));
-    const mustEscape=threatened||nextStepDanger;bot.escapeMode=mustEscape;
+    const mustEscape=threatened||nextStepDanger;
     if((mustEscape&&(!bot.target||!bot.target.escape||nextStepDanger))||(!mustEscape&&(bot.think<=0||!bot.target||bot.target.escape))){
       bot.think=.22;
       if(mustEscape){
@@ -269,7 +269,7 @@
     if(bot.target.step){const sx=bot.target.step.x,sy=bot.target.step.y;const stepBlocked=grid[sy]?.[sx]!==0||bombs.some(b=>!b.exploded&&b.x===sx&&b.y===sy);if(stepBlocked)bot.target.step=null;}
     if(!bot.target.step){const path=botPath(bx,by,goalX,goalY);if(path.length)bot.target.step=path[0];}
     const step=bot.target.step;
-    if(step&&(mustEscape||!danger.has(keyCell(step.x,step.y))){const tx=(step.x+.5)*TILE,ty=(step.y+.5)*TILE;let dx=tx-bot.x,dy=ty-bot.y;bot.angle=Math.atan2(dy,dx);const speed=mustEscape?bot.speed*1.5:bot.speed;let remaining=speed*dt;while(remaining>0.01){const part=Math.min(remaining,3);const ax=tx-bot.x,ay=ty-bot.y;if(Math.abs(ax)>=Math.abs(ay)){if(Math.abs(ax)>0.5){const nx=bot.x+Math.sign(ax)*part;if(!botBlocked(nx,bot.y))bot.x=nx;}if(Math.abs(ay)>0.5){const ny=bot.y+Math.sign(ay)*part;if(!botBlocked(bot.x,ny))bot.y=ny;}}else{if(Math.abs(ay)>0.5){const ny=bot.y+Math.sign(ay)*part;if(!botBlocked(bot.x,ny))bot.y=ny;}if(Math.abs(ax)>0.5){const nx=bot.x+Math.sign(ax)*part;if(!botBlocked(nx,bot.y))bot.x=nx;}}remaining-=part;if(Math.abs(tx-bot.x)<0.5&&Math.abs(ty-bot.y)<0.5)break;}if(Math.abs(tx-bot.x)<5&&Math.abs(ty-bot.y)<5){bot.x=tx;bot.y=ty;bot.target.step=null;}}
+    if(step&&!danger.has(keyCell(step.x,step.y))){const tx=(step.x+.5)*TILE,ty=(step.y+.5)*TILE;let dx=tx-bot.x,dy=ty-bot.y;bot.angle=Math.atan2(dy,dx);const speed=mustEscape?bot.speed*1.5:bot.speed;let remaining=speed*dt;while(remaining>0.01){const part=Math.min(remaining,3);const ax=tx-bot.x,ay=ty-bot.y;if(Math.abs(ax)>=Math.abs(ay)){if(Math.abs(ax)>0.5){const nx=bot.x+Math.sign(ax)*part;if(!botBlocked(nx,bot.y))bot.x=nx;}if(Math.abs(ay)>0.5){const ny=bot.y+Math.sign(ay)*part;if(!botBlocked(bot.x,ny))bot.y=ny;}}else{if(Math.abs(ay)>0.5){const ny=bot.y+Math.sign(ay)*part;if(!botBlocked(bot.x,ny))bot.y=ny;}if(Math.abs(ax)>0.5){const nx=bot.x+Math.sign(ax)*part;if(!botBlocked(nx,bot.y))bot.x=nx;}}remaining-=part;if(Math.abs(tx-bot.x)<0.5&&Math.abs(ty-bot.y)<0.5)break;}if(Math.abs(tx-bot.x)<5&&Math.abs(ty-bot.y)<5){bot.x=tx;bot.y=ty;bot.target.step=null;}}
     const nowX=Math.floor(bot.x/TILE),nowY=Math.floor(bot.y/TILE),crateNearby=[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>grid[nowY+dy]?.[nowX+dx]===1),playerNearby=Math.abs(nowX-px)+Math.abs(nowY-py)<=3;
     if(!mustEscape&&bot.activeBombs===0&&(crateNearby||playerNearby)&&Math.random()<(elapsed<18?0.035:0.004)){const exits=[];const blast=new Set();const bxBomb=nowX,byBomb=nowY;blast.add(keyCell(bxBomb,byBomb));for(const [ddx,ddy] of [[1,0],[-1,0],[0,1],[0,-1]])for(let i=1;i<=bot.range;i++){const xx=bxBomb+ddx*i,yy=byBomb+ddy*i;if(xx<0||yy<0||xx>=COLS||yy>=ROWS||grid[yy][xx]===2)break;blast.add(keyCell(xx,yy));if(grid[yy][xx]===1)break;}for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++){if(grid[y][x]!==0||blast.has(keyCell(x,y))||bombs.some(b=>!b.exploded&&b.x===x&&b.y===y))continue;const escapePath=botPath(nowX,nowY,x,y);if(escapePath.length>1&&!escapePath.some(p=>blast.has(keyCell(p.x,p.y)))){const distance=Math.abs(x-nowX)+Math.abs(y-nowY);const openNeighbors=[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>grid[y+dy]?.[x+dx]===0&&!blast.has(keyCell(x+dx,y+dy))&&!bombs.some(b=>!b.exploded&&b.x===x+dx&&b.y===y+dy)).length;exits.push({x,y,path:escapePath,score:distance+openNeighbors*1.5});}}if(exits.length){exits.sort((a,b)=>b.score-a.score);const chosen=exits[0];botPlaceBomb();bot.target={x:chosen.x,y:chosen.y,escape:true,goal:{x:chosen.x,y:chosen.y},step:chosen.path[0]};bot.think=.6;}}
   }
