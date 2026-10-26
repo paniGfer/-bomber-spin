@@ -242,7 +242,7 @@
     for(const b of bombs){if(b.exploded)continue;const nearOwnBomb=b.owner==="bot"&&Math.hypot(bot.x-(b.x+.5)*TILE,bot.y-(b.y+.5)*TILE)<TILE*1.8;if(b.t<1.25||nearOwnBomb){danger.add(keyCell(b.x,b.y));for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])for(let i=1;i<=b.range;i++){const x=b.x+dx*i,y=b.y+dy*i;if(x<0||y<0||x>=COLS||y>=ROWS||grid[y][x]===2)break;danger.add(keyCell(x,y));if(grid[y][x]===1)break;}}}
     for(const f of flames)for(const [x,y] of f.cells)danger.add(keyCell(x,y));
     const threatened=danger.has(keyCell(bx,by));
-    if(threatened||bot.think<=0||!bot.target){
+    if((threatened&&(!bot.target||!bot.target.escape))||(!threatened&&(bot.think<=0||!bot.target))){
       bot.think=.22;
       if(threatened){
         const safe=[];for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++){if(grid[y][x]!==0||danger.has(keyCell(x,y)))continue;const path=botPath(bx,by,x,y);if(path.length)safe.push({x,y,path});}
@@ -262,7 +262,7 @@
     let path=botPath(bx,by,bot.target.goal?bot.target.goal.x:bot.target.x,bot.target.goal?bot.target.goal.y:bot.target.y);
     if(path.length){const step=path[0],tx=(step.x+.5)*TILE,ty=(step.y+.5)*TILE;let dx=tx-bot.x,dy=ty-bot.y;const len=Math.hypot(dx,dy)||1;dx/=len;dy/=len;bot.angle=Math.atan2(dy,dx);const speed=threatened?bot.speed*1.5:bot.speed;const nx=bot.x+dx*speed*dt,ny=bot.y+dy*speed*dt;if(!botBlocked(nx,bot.y))bot.x=nx;if(!botBlocked(bot.x,ny))bot.y=ny;}
     const nowX=Math.floor(bot.x/TILE),nowY=Math.floor(bot.y/TILE),crateNearby=[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>grid[nowY+dy]?.[nowX+dx]===1),playerNearby=Math.abs(nowX-px)+Math.abs(nowY-py)<=3;
-    if(!threatened&&bot.activeBombs===0&&(crateNearby||playerNearby)&&Math.random()<.012){botPlaceBomb();bot.target=null;bot.think=0;}
+    if(!threatened&&bot.activeBombs===0&&(crateNearby||playerNearby)&&Math.random()<.004){const exits=[];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const x=nowX+dx,y=nowY+dy;if(grid[y]?.[x]!==0||bombs.some(b=>!b.exploded&&b.x===x&&b.y===y))continue;const escapePath=botPath(nowX,nowY,x,y);if(escapePath.length)exits.push({x,y,path:escapePath});}if(exits.length){exits.sort((a,b)=>{const score=p=>p.path.length+(p.x!==nowX&&p.y!==nowY?1:0);return score(b)-score(a);});botPlaceBomb();bot.target={x:exits[0].x,y:exits[0].y,escape:true};bot.think=0;}}
   }
   function update(dt){
     if(gameOver) return;
