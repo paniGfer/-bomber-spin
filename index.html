@@ -142,10 +142,11 @@
         // its collision until the player has completely left that tile.
         // Walls/crates are still checked above, so escape works beside obstacles.
         if(bomb.escape){
-          // Let the player move out of the bomb's tile even when placed in a tight corridor.
-          // Disable this exception only after the player's center leaves the tile.
-          const centerInside=player.x>=left&&player.x<right&&player.y>=top&&player.y<bottom;
-          if(centerInside) continue;
+          // Keep ignoring this bomb while any part of the player's collision circle
+          // overlaps its tile. Otherwise the bomb blocks the player halfway out.
+          const overlapsTile = player.x+r>left && player.x-r<right &&
+                               player.y+r>top && player.y-r<bottom;
+          if(overlapsTile) continue;
         }
         const cx=Math.max(left,Math.min(tx,right));
         const cy=Math.max(top,Math.min(ty,bottom));
@@ -220,16 +221,15 @@
       player.angle=Math.atan2(dy,dx);
       canMove(player.x+dx*player.speed*dt,player.y+dy*player.speed*dt);
     }
-    // Keep the newly placed bomb passable until the whole player collision circle
-    // has cleared its tile. Disabling escape when only the center leaves traps the
-    // player against the bomb's edge.
+    // Stop ignoring the bomb only when the player's collision circle no longer
+    // overlaps the bomb tile, using the same overlap test as canMove().
     for(const b of bombs){
       if(!b.exploded && b.escape){
         const r=player.r-4;
         const left=b.x*TILE, top=b.y*TILE, right=left+TILE, bottom=top+TILE;
-        const fullyOutside = player.x < left-r || player.x > right+r ||
-                             player.y < top-r || player.y > bottom+r;
-        if(fullyOutside) b.escape=false;
+        const overlapsTile = player.x+r>left && player.x-r<right &&
+                             player.y+r>top && player.y-r<bottom;
+        if(!overlapsTile) b.escape=false;
       }
     }
     bombs.forEach(b=>{b.t-=dt;if(b.t<=0&&!b.exploded) explode(b);});
