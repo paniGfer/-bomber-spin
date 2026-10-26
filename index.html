@@ -22,19 +22,16 @@
   .help { color:var(--muted); font-size:13px; line-height:1.5; }
   button { color:var(--text); background:#26344a; border:1px solid #455a78; border-radius:12px; padding:11px 15px; font-weight:700; cursor:pointer; touch-action:manipulation; }
   button:active { transform:translateY(1px); background:#354966; }
-  .joystick-wrap { display:none; justify-content:center; margin:14px auto 8px; touch-action:none; overscroll-behavior:none; }
+  .mobile-controls { display:none; align-items:center; justify-content:space-between; gap:18px; margin:10px 8px 2px; touch-action:none; overscroll-behavior:none; }
+  .joystick-wrap { display:flex; justify-content:center; margin:0; touch-action:none; overscroll-behavior:none; flex:0 0 auto; }
   .joystick { width:148px; height:148px; border-radius:50%; position:relative; background:radial-gradient(circle, #203247 0%, #142130 68%, #0d1520 100%); border:2px solid #47617b; box-shadow:inset 0 0 0 8px #ffffff08, 0 6px 18px #0006; touch-action:none; user-select:none; }
   .joystick::before { content:""; position:absolute; inset:28px; border:1px solid #6c849d55; border-radius:50%; }
   .stick { position:absolute; width:58px; height:58px; left:43px; top:43px; border-radius:50%; background:linear-gradient(145deg,#65d6e8,#2687b8); border:2px solid #a3eff6; box-shadow:0 3px 10px #0008; pointer-events:none; transform:translate(0,0); }
   .joystick-hint { text-align:center; color:#8093ae; font-size:12px; margin-top:6px; }
-  .action-row { display:none; justify-content:center; gap:10px; margin-top:10px; }
+  .action-row { display:flex; justify-content:center; gap:10px; margin:0; }
   .bomb-btn { background:#7d2c36; border-color:#b34d5a; min-width:112px; }
   .restart { background:#1c6473; border-color:#3997a8; }
   .overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:#070b12c9; border-radius:10px; text-align:center; padding:20px; }
-  .floating-stick { display:none; position:absolute; width:112px; height:112px; margin:-56px 0 0 -56px; border-radius:50%; border:2px solid #9deaf599; background:#102538aa; box-shadow:inset 0 0 0 8px #ffffff0a,0 4px 16px #0008; pointer-events:none; z-index:3; }
-  .floating-stick::before { content:""; position:absolute; inset:16px; border:1px solid #9deaf566; border-radius:50%; }
-  .floating-knob { position:absolute; width:44px; height:44px; left:32px; top:32px; border-radius:50%; background:linear-gradient(145deg,#8af0ff,#238dbd); border:2px solid #d5fbff; box-shadow:0 3px 10px #0009; }
-  .canvas-bomb { display:none; position:absolute; right:12px; bottom:12px; width:72px; height:72px; min-width:0; padding:0; border-radius:50%; font-size:30px; border:2px solid #ffb15e; background:radial-gradient(circle at 35% 30%,#ff9858,#a72f37 70%); box-shadow:0 0 0 4px #ffb15e33,0 5px 14px #0008; z-index:4; }
   .canvas-box { position:relative; }
   .overlay h2 { margin:0 0 8px; font-size:28px; }
   .overlay p { color:#cad6e8; }
@@ -48,14 +45,16 @@
     .stat { padding:6px 8px; font-size:11px; border-radius:9px; }
     .game-shell { padding:5px; border-radius:13px; }
     .below { grid-template-columns:1fr; gap:8px; margin-top:8px; }
-    .help { text-align:center; font-size:12px; line-height:1.4; }
+    .help { text-align:center; font-size:12px; line-height:1.35; }
+    .desktop-help { display:none; }
     .help b:first-child { display:none; }
     .restart { width:100%; padding:10px; }
-    .joystick-wrap, .action-row { display:none; }
-    .floating-stick { display:none; width:96px; height:96px; margin:-48px 0 0 -48px; }
-    .floating-stick::before { inset:13px; }
-    .floating-knob { width:38px; height:38px; left:27px; top:27px; }
-    .canvas-bomb { display:block; width:54px; height:54px; right:8px; bottom:8px; font-size:24px; }
+    .mobile-controls { display:flex; gap:12px; margin:10px 10px 2px; }
+    .joystick { width:112px; height:112px; }
+    .joystick::before { inset:20px; }
+    .stick { width:46px; height:46px; left:31px; top:31px; }
+    .action-row { display:flex; }
+    .bomb-btn { width:76px; height:76px; min-width:76px; padding:0; border-radius:50%; font-size:28px; background:radial-gradient(circle at 35% 30%,#ff9858,#a72f37 70%); border:2px solid #ffb15e; box-shadow:0 0 0 4px #ffb15e22,0 5px 14px #0006; }
     .notice { font-size:10px; text-align:center; }
   }
 </style>
@@ -76,8 +75,6 @@
   <div class="game-shell">
     <div class="canvas-box">
       <canvas id="game" width="720" height="480" aria-label="Игровое поле Bomber Spin"></canvas>
-      <div class="floating-stick" id="floatingStick"><div class="floating-knob" id="floatingKnob"></div></div>
-      <button class="canvas-bomb" id="canvasBomb" aria-label="Поставить бомбу">💣</button>
       <div class="overlay" id="overlay">
         <div><h2 id="overlayTitle">Игра окончена</h2><p id="overlayText">Попробуй ещё раз.</p><button class="restart" id="overlayRestart">Играть снова</button></div>
       </div>
@@ -85,21 +82,20 @@
   </div>
   <div class="below">
     <div class="help">
-      <b>Компьютер:</b> WASD или стрелки — движение · Пробел — бомба · R — заново.<br>
-      <b>Телефон:</b> коснись поля в удобном месте и веди пальцем для движения; бомба — круглая кнопка на поле.<br>
-      Разбей ящики, собирай бонусы и не попадай в радиус взрыва!
+      <span class="desktop-help"><b>Компьютер:</b> WASD или стрелки — движение · Пробел — бомба · R — заново.<br></span>
+      <b>Телефон:</b> управляй волчком джойстиком ниже; нажми 💣, чтобы поставить бомбу.<br>
+      Разбей ящики, собирай бонусы и избегай взрывов!
     </div>
     <button class="restart" id="restart">↻ Начать заново</button>
   </div>
-  <div class="joystick-wrap">
-    <div>
+  <div class="mobile-controls">
+    <div class="joystick-wrap">
       <div class="joystick" id="joystick" role="application" aria-label="Джойстик управления">
         <div class="stick" id="stick"></div>
       </div>
-      <div class="joystick-hint">Потяни джойстик в нужную сторону</div>
     </div>
+    <div class="action-row"><button class="bomb-btn" id="bombButton" aria-label="Поставить бомбу">💣</button></div>
   </div>
-  <div class="action-row"><button class="bomb-btn" id="bombButton">💣 Поставить бомбу</button></div>
   <div class="notice">Демо: одиночная игра с процедурным полем. Онлайн-игроков пока нет.</div>
 </div>
 <script>
@@ -338,6 +334,9 @@
   const stick=document.querySelector('#stick');
   // Prevent iPhone Safari from scrolling the page while the joystick is touched.
   joystick.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+  document.addEventListener('touchmove',e=>{
+    if(joystickPointer!==null) e.preventDefault();
+  },{passive:false});
   let joystickPointer=null;
   function updateJoystick(e){
     const rect=joystick.getBoundingClientRect();
@@ -364,42 +363,6 @@
   });
   joystick.addEventListener('pointerup',releaseJoystick);
   joystick.addEventListener('pointercancel',releaseJoystick);
-  // Floating joystick: touch anywhere on the game field to choose where the
-  // joystick appears, then drag in the direction you want to move.
-  const floatingStick=el('floatingStick'), floatingKnob=el('floatingKnob');
-  let floatingPointer=null, floatingOrigin={x:0,y:0};
-  function moveFloatingStick(e){
-    const box=canvas.getBoundingClientRect();
-    const x=Math.max(50,Math.min(box.width-50,e.clientX-box.left));
-    const y=Math.max(50,Math.min(box.height-50,e.clientY-box.top));
-    let dx=e.clientX-floatingOrigin.x, dy=e.clientY-floatingOrigin.y;
-    const max=32, dist=Math.hypot(dx,dy);
-    if(dist>max){dx=dx/dist*max;dy=dy/dist*max;}
-    floatingKnob.style.transform=`translate(${dx}px,${dy}px)`;
-    floatingStick.style.left=`${x}px`; floatingStick.style.top=`${y}px`;
-    if(Math.hypot(dx,dy)<7){touchDir=null;return;}
-    if(Math.abs(dx)>Math.abs(dy)*0.65) touchDir=dx>0?'right':'left';
-    else touchDir=dy>0?'down':'up';
-    moveDir=null;
-  }
-  canvas.addEventListener('pointerdown',e=>{
-    if(e.pointerType==='mouse'||gameOver)return;
-    e.preventDefault(); floatingPointer=e.pointerId;
-    floatingOrigin={x:e.clientX,y:e.clientY};
-    floatingStick.style.display='block'; moveFloatingStick(e);
-    canvas.setPointerCapture(e.pointerId);
-  });
-  canvas.addEventListener('pointermove',e=>{
-    if(floatingPointer===e.pointerId){e.preventDefault();moveFloatingStick(e);}
-  });
-  function releaseFloating(e){
-    if(floatingPointer!==e.pointerId)return;
-    floatingPointer=null;touchDir=null;floatingStick.style.display='none';
-    floatingKnob.style.transform='translate(0,0)';
-  }
-  canvas.addEventListener('pointerup',releaseFloating);
-  canvas.addEventListener('pointercancel',releaseFloating);
-  el('canvasBomb').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();placeBomb();});
   reset();requestAnimationFrame(loop);
 })();
 </script>
