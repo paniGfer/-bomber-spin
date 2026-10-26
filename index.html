@@ -125,31 +125,33 @@
   function solidAt(px,py){
     const x=Math.floor(px/TILE),y=Math.floor(py/TILE);
     if(x<0||y<0||x>=COLS||y>=ROWS) return true;
-    if(grid[y][x]!==0) return true;
-    // A bomb blocks its tile, except while the player is still overlapping the tile
-    // where that bomb was placed. This lets the player escape without getting stuck.
-    return bombs.some(b=>!b.exploded && b.x===x && b.y===y && !b.escape);
+    return grid[y][x]!==0;
   }
   function canMove(nx,ny){
     const r=player.r-2;
-    // While overlapping a newly placed bomb, allow movement only if it takes
-    // the player farther away from that bomb. This prevents crossing through it.
-    const escapeMoveAllowed=(tx,ty)=>{
+    function blocked(tx,ty){
+      // Walls and crates.
+      if(solidAt(tx-r,ty-r)||solidAt(tx+r,ty-r)||solidAt(tx-r,ty+r)||solidAt(tx+r,ty+r)) return true;
+      // Bombs use their full tile as a collision box, not just the sampled corners.
       for(const b of bombs){
-        if(b.exploded || !b.escape) continue;
+        if(b.exploded) continue;
         const left=b.x*TILE, top=b.y*TILE, right=left+TILE, bottom=top+TILE;
-        const overlaps=tx+player.r>left && tx-player.r<right && ty+player.r>top && ty-player.r<bottom;
-        if(overlaps){
+        const overlaps=tx+r>left && tx-r<right && ty+r>top && ty-r<bottom;
+        if(!overlaps) continue;
+        if(b.escape){
+          // Escape is allowed only when moving away from the bomb, never toward or through it.
+          const wasOverlapping=player.x+ r>left && player.x-r<right && player.y+r>top && player.y-r<bottom;
           const oldDist=Math.hypot(player.x-(b.x+.5)*TILE,player.y-(b.y+.5)*TILE);
           const newDist=Math.hypot(tx-(b.x+.5)*TILE,ty-(b.y+.5)*TILE);
-          if(newDist<=oldDist+0.01) return false;
+          if(wasOverlapping && newDist>oldDist+0.01) continue;
         }
+        return true;
       }
-      return true;
-    };
-    // Axis-separated collision permits sliding along crates.
-    if(escapeMoveAllowed(nx,player.y) && !solidAt(nx-r,player.y-r)&&!solidAt(nx+r,player.y-r)&&!solidAt(nx-r,player.y+r)&&!solidAt(nx+r,player.y+r)) player.x=nx;
-    if(escapeMoveAllowed(player.x,ny) && !solidAt(player.x-r,ny-r)&&!solidAt(player.x+r,ny-r)&&!solidAt(player.x-r,ny+r)&&!solidAt(player.x+r,ny+r)) player.y=ny;
+      return false;
+    }
+    // Move one axis at a time so the player can slide along obstacles.
+    if(!blocked(nx,player.y)) player.x=nx;
+    if(!blocked(player.x,ny)) player.y=ny;
   }
   function placeBomb(){
     if(gameOver||player.activeBombs>=player.maxBombs) return;
