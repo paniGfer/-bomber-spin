@@ -225,7 +225,7 @@
   function botBlocked(tx,ty){
     const r=bot.r-3,minX=Math.floor((tx-r)/TILE),maxX=Math.floor((tx+r)/TILE),minY=Math.floor((ty-r)/TILE),maxY=Math.floor((ty+r)/TILE);
     for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++)if(x<0||y<0||x>=COLS||y>=ROWS||grid[y][x]!==0)return true;
-    for(const b of bombs){if(b.exploded)continue;const bx=(b.x+.5)*TILE,by=(b.y+.5)*TILE;if(b.owner==="bot"&&b.escape&&Math.hypot(bot.x-bx,bot.y-by)<TILE*1.35)continue;if(Math.hypot(tx-bx,ty-by)<r+18)return true;}
+    for(const b of bombs){if(b.exploded)continue;const bx=(b.x+.5)*TILE,by=(b.y+.5)*TILE;if(b.owner==="bot"&&b.escape)continue;if(Math.hypot(tx-bx,ty-by)<r+18)return true;}
     return false;
   }
   function botPath(sx,sy,tx,ty){
