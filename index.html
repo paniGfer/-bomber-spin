@@ -125,39 +125,39 @@
   function canMove(nx,ny){
     const r=player.r-2;
     function blocked(tx,ty){
-      // Проверяем настоящее столкновение круга игрока с каждым соседним тайлом.
-      // Это позволяет скользить вдоль стен и не застревать в углах.
       const minX=Math.floor((tx-r)/TILE), maxX=Math.floor((tx+r)/TILE);
       const minY=Math.floor((ty-r)/TILE), maxY=Math.floor((ty+r)/TILE);
       for(let y=minY;y<=maxY;y++) for(let x=minX;x<=maxX;x++){
         if(x<0||y<0||x>=COLS||y>=ROWS) return true;
         if(grid[y][x]===0) continue;
         const left=x*TILE, top=y*TILE, right=left+TILE, bottom=top+TILE;
-        const closestX=Math.max(left,Math.min(tx,right));
-        const closestY=Math.max(top,Math.min(ty,bottom));
-        const dx=tx-closestX, dy=ty-closestY;
-        if(dx*dx+dy*dy<r*r) return true;
+        const cx=Math.max(left,Math.min(tx,right));
+        const cy=Math.max(top,Math.min(ty,bottom));
+        if((tx-cx)**2+(ty-cy)**2<r*r) return true;
       }
-      for(const b of bombs){
-        if(b.exploded) continue;
-        const left=b.x*TILE, top=b.y*TILE, right=left+TILE, bottom=top+TILE;
-        const closestX=Math.max(left,Math.min(tx,right));
-        const closestY=Math.max(top,Math.min(ty,bottom));
-        const dx=tx-closestX, dy=ty-closestY;
-        if(dx*dx+dy*dy>=r*r) continue;
-        if(b.escape){
-          const wasOverlapping=player.x+r>left && player.x-r<right && player.y+r>top && player.y-r<bottom;
-          const oldDist=Math.hypot(player.x-(b.x+.5)*TILE,player.y-(b.y+.5)*TILE);
-          const newDist=Math.hypot(tx-(b.x+.5)*TILE,ty-(b.y+.5)*TILE);
-          if(wasOverlapping && newDist>oldDist+0.01) continue;
+      for(const bomb of bombs){
+        if(bomb.exploded) continue;
+        const left=bomb.x*TILE, top=bomb.y*TILE, right=left+TILE, bottom=top+TILE;
+        const cx=Math.max(left,Math.min(tx,right));
+        const cy=Math.max(top,Math.min(ty,bottom));
+        if((tx-cx)**2+(ty-cy)**2>=r*r) continue;
+        if(bomb.escape){
+          const inside=player.x+r>left&&player.x-r<right&&player.y+r>top&&player.y-r<bottom;
+          const oldD=Math.hypot(player.x-(bomb.x+.5)*TILE,player.y-(bomb.y+.5)*TILE);
+          const newD=Math.hypot(tx-(bomb.x+.5)*TILE,ty-(bomb.y+.5)*TILE);
+          if(inside&&newD>oldD+0.01) continue;
         }
         return true;
       }
       return false;
     }
-    // Оси двигаются отдельно: у стены можно продолжать движение вдоль неё.
-    if(!blocked(nx,player.y)) player.x=nx;
-    if(!blocked(player.x,ny)) player.y=ny;
+    const dx=nx-player.x, dy=ny-player.y;
+    const steps=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))/3));
+    for(let i=1;i<=steps;i++){
+      const tx=player.x+dx*i/steps, ty=player.y+dy*i/steps;
+      if(!blocked(tx,player.y)) player.x=tx;
+      if(!blocked(player.x,ty)) player.y=ty;
+    }
   }
   function placeBomb(){
     if(gameOver||player.activeBombs>=player.maxBombs) return;
