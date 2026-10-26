@@ -123,8 +123,7 @@
     el('range').textContent=player.range; el('speed').textContent=Math.round(player.speed); el('bonusCount').textContent=bonusCount;
   }
   function canMove(nx,ny){
-    // Slightly smaller collision radius leaves a little clearance at tight corners.
-    const r=player.r-5;
+    const r=player.r-4;
     function blocked(tx,ty){
       const minX=Math.floor((tx-r)/TILE), maxX=Math.floor((tx+r)/TILE);
       const minY=Math.floor((ty-r)/TILE), maxY=Math.floor((ty+r)/TILE);
@@ -141,38 +140,35 @@
         const left=bomb.x*TILE, top=bomb.y*TILE, right=left+TILE, bottom=top+TILE;
         const cx=Math.max(left,Math.min(tx,right));
         const cy=Math.max(top,Math.min(ty,bottom));
-        if((tx-cx)*(tx-cx)+(ty-cy)*(ty-cy)>=r*r) continue;
+        const dx=tx-cx, dy=ty-cy;
+        if(dx*dx+dy*dy>=r*r) continue;
         if(bomb.escape){
-          const overlaps=player.x+player.r>left&&player.x-player.r<right&&player.y+player.r>top&&player.y-player.r<bottom;
+          // Escape only while the player's centre is inside the bomb tile.
+          // Once the centre leaves the tile, the bomb blocks movement normally.
+          const centerInside=player.x>=left&&player.x<right&&player.y>=top&&player.y<bottom;
           const oldDist=Math.hypot(player.x-(bomb.x+.5)*TILE,player.y-(bomb.y+.5)*TILE);
           const newDist=Math.hypot(tx-(bomb.x+.5)*TILE,ty-(bomb.y+.5)*TILE);
-          if(overlaps&&newDist>oldDist+0.01) continue;
+          if(centerInside&&newDist>oldDist+0.001) continue;
         }
         return true;
       }
       return false;
     }
+    // Use fixed starting coordinates for each frame and test each axis independently.
     const startX=player.x, startY=player.y;
     const dx=nx-startX, dy=ny-startY;
-    // Try the larger movement axis first, then the other axis for wall sliding.
-    const moveX=()=>{
-      const steps=Math.max(1,Math.ceil(Math.abs(dx)/2));
+    function moveAxis(delta,axis){
+      const steps=Math.max(1,Math.ceil(Math.abs(delta)/2));
       for(let i=1;i<=steps;i++){
-        const tx=startX+dx*i/steps;
-        if(!blocked(tx,player.y)) player.x=tx;
-        else break;
+        const v=(axis==='x'?startX:startY)+delta*i/steps;
+        const tx=axis==='x'?v:player.x;
+        const ty=axis==='y'?v:player.y;
+        if(blocked(tx,ty)) break;
+        if(axis==='x') player.x=v; else player.y=v;
       }
-    };
-    const moveY=()=>{
-      const steps=Math.max(1,Math.ceil(Math.abs(dy)/2));
-      for(let i=1;i<=steps;i++){
-        const ty=startY+dy*i/steps;
-        if(!blocked(player.x,ty)) player.y=ty;
-        else break;
-      }
-    };
-    if(Math.abs(dx)>=Math.abs(dy)){moveX();moveY();}
-    else {moveY();moveX();}
+    }
+    if(Math.abs(dx)>=Math.abs(dy)){moveAxis(dx,'x');moveAxis(dy,'y');}
+    else {moveAxis(dy,'y');moveAxis(dx,'x');}
   }
   function placeBomb(){
     if(gameOver||player.activeBombs>=player.maxBombs) return;
