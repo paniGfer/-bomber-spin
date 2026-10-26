@@ -128,15 +128,7 @@
     if(grid[y][x]!==0) return true;
     // A bomb blocks its tile, except while the player is still overlapping the tile
     // where that bomb was placed. This lets the player escape without getting stuck.
-    return bombs.some(b=>{
-      if(b.exploded || b.x!==x || b.y!==y) return false;
-      const playerStillOverlapsBombTile =
-        player.x+player.r > b.x*TILE &&
-        player.x-player.r < (b.x+1)*TILE &&
-        player.y+player.r > b.y*TILE &&
-        player.y-player.r < (b.y+1)*TILE;
-      return !playerStillOverlapsBombTile;
-    });
+    return bombs.some(b=>!b.exploded && b.x===x && b.y===y && !b.escape);
   }
   function canMove(nx,ny){
     const r=player.r-2;
@@ -148,7 +140,7 @@
     if(gameOver||player.activeBombs>=player.maxBombs) return;
     const x=Math.floor(player.x/TILE),y=Math.floor(player.y/TILE);
     if(bombs.some(b=>b.x===x&&b.y===y)) return;
-    bombs.push({x,y,t:2.05,range:player.range,exploded:false});
+    bombs.push({x,y,t:2.05,range:player.range,exploded:false,escape:true});
     player.activeBombs++; updateStats();
   }
   function explode(b){
@@ -193,6 +185,14 @@
       const len=Math.hypot(dx,dy)||1; dx/=len;dy/=len;
       player.angle=Math.atan2(dy,dx);
       canMove(player.x+dx*player.speed*dt,player.y+dy*player.speed*dt);
+    }
+    // Let the player leave the bomb's tile once; then the bomb becomes solid.
+    for(const b of bombs){
+      if(!b.exploded && b.escape){
+        const left=b.x*TILE, top=b.y*TILE, right=left+TILE, bottom=top+TILE, r=player.r;
+        const fullyOutside = player.x+r<=left || player.x-r>=right || player.y+r<=top || player.y-r>=bottom;
+        if(fullyOutside) b.escape=false;
+      }
     }
     bombs.forEach(b=>{b.t-=dt;if(b.t<=0&&!b.exploded) explode(b);});
     bombs=bombs.filter(b=>!b.exploded);
