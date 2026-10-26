@@ -21,9 +21,11 @@
   .help { color:var(--muted); font-size:13px; line-height:1.5; }
   button { color:var(--text); background:#26344a; border:1px solid #455a78; border-radius:12px; padding:11px 15px; font-weight:700; cursor:pointer; touch-action:manipulation; }
   button:active { transform:translateY(1px); background:#354966; }
-  .controls { display:none; grid-template-columns:repeat(3,54px); grid-template-rows:repeat(2,48px); gap:6px; justify-content:center; margin:14px auto 4px; }
-  .controls button { padding:0; font-size:20px; user-select:none; touch-action:none; }
-  .controls .empty { visibility:hidden; }
+  .joystick-wrap { display:none; justify-content:center; margin:14px auto 8px; }
+  .joystick { width:148px; height:148px; border-radius:50%; position:relative; background:radial-gradient(circle, #203247 0%, #142130 68%, #0d1520 100%); border:2px solid #47617b; box-shadow:inset 0 0 0 8px #ffffff08, 0 6px 18px #0006; touch-action:none; user-select:none; }
+  .joystick::before { content:""; position:absolute; inset:28px; border:1px solid #6c849d55; border-radius:50%; }
+  .stick { position:absolute; width:58px; height:58px; left:43px; top:43px; border-radius:50%; background:linear-gradient(145deg,#65d6e8,#2687b8); border:2px solid #a3eff6; box-shadow:0 3px 10px #0008; pointer-events:none; transform:translate(0,0); }
+  .joystick-hint { text-align:center; color:#8093ae; font-size:12px; margin-top:6px; }
   .action-row { display:flex; justify-content:center; gap:10px; margin-top:10px; }
   .bomb-btn { background:#7d2c36; border-color:#b34d5a; min-width:112px; }
   .restart { background:#1c6473; border-color:#3997a8; }
@@ -35,7 +37,7 @@
   @media (max-width:650px) {
     .wrap { padding:9px; }
     .below { grid-template-columns:1fr; }
-    .controls { display:grid; }
+    .joystick-wrap { display:flex; }
     .help { text-align:center; }
     .stat { padding:7px 9px; font-size:12px; }
   }
@@ -70,10 +72,13 @@
     </div>
     <button class="restart" id="restart">↻ Начать заново</button>
   </div>
-  <div class="controls" aria-label="Экранное управление">
-    <button class="empty">·</button><button data-stop="true" aria-label="Остановиться">■</button><button class="empty">·</button>
-    <button data-dir="left" aria-label="Влево">◀</button><button data-dir="down" aria-label="Вниз">▼</button><button data-dir="right" aria-label="Вправо">▶</button>
-    <button class="empty">·</button><button data-dir="up" aria-label="Вверх">▲</button><button class="empty">·</button>
+  <div class="joystick-wrap">
+    <div>
+      <div class="joystick" id="joystick" role="application" aria-label="Джойстик управления">
+        <div class="stick" id="stick"></div>
+      </div>
+      <div class="joystick-hint">Потяни джойстик в нужную сторону</div>
+    </div>
   </div>
   <div class="action-row"><button class="bomb-btn" id="bombButton">💣 Поставить бомбу</button></div>
   <div class="notice">Демо: одиночная игра с процедурным полем. Онлайн-игроков пока нет.</div>
@@ -268,18 +273,35 @@
   window.addEventListener('keyup',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;keys[k]=false;});
   el('bombButton').addEventListener('pointerdown',e=>{e.preventDefault();placeBomb();});
   el('restart').addEventListener('click',reset); el('overlayRestart').addEventListener('click',reset);
-  // Tap-to-move controls: direction remains active until another direction or Stop is tapped.
-  document.querySelectorAll('[data-dir]').forEach(btn=>{
-    btn.addEventListener('pointerdown',e=>{
-      e.preventDefault();
-      touchDir = touchDir === btn.dataset.dir ? null : btn.dataset.dir;
-      moveDir = null;
-    });
+  // Analog-style touch joystick. Movement follows the direction while the stick is held.
+  const joystick=document.querySelector('#joystick');
+  const stick=document.querySelector('#stick');
+  let joystickPointer=null;
+  function updateJoystick(e){
+    const rect=joystick.getBoundingClientRect();
+    const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+    let dx=e.clientX-cx, dy=e.clientY-cy;
+    const max=45, dist=Math.hypot(dx,dy);
+    if(dist>max){dx=dx/dist*max;dy=dy/dist*max;}
+    stick.style.transform=`translate(${dx}px,${dy}px)`;
+    if(Math.hypot(dx,dy)<10){touchDir=null;return;}
+    if(Math.abs(dx)>Math.abs(dy)*0.65) touchDir=dx>0?'right':'left';
+    else touchDir=dy>0?'down':'up';
+    moveDir=null;
+  }
+  function releaseJoystick(e){
+    if(joystickPointer!==e.pointerId)return;
+    joystickPointer=null;touchDir=null;stick.style.transform='translate(0,0)';
+  }
+  joystick.addEventListener('pointerdown',e=>{
+    e.preventDefault();joystickPointer=e.pointerId;
+    joystick.setPointerCapture(e.pointerId);updateJoystick(e);
   });
-  const stopButton=document.querySelector('[data-stop]');
-  stopButton.addEventListener('pointerdown',e=>{
-    e.preventDefault(); touchDir=null; moveDir=null;
+  joystick.addEventListener('pointermove',e=>{
+    if(joystickPointer===e.pointerId){e.preventDefault();updateJoystick(e);}
   });
+  joystick.addEventListener('pointerup',releaseJoystick);
+  joystick.addEventListener('pointercancel',releaseJoystick);
   // Swipe controls: drag direction in the game area.
   let swipeStart=null;
   canvas.addEventListener('pointerdown',e=>{swipeStart={x:e.clientX,y:e.clientY};});
