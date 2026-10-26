@@ -250,7 +250,7 @@
       bot.think=.22;
       if(mustEscape){
         const safe=[];for(let y=1;y<ROWS-1;y++)for(let x=1;x<COLS-1;x++){if(grid[y][x]!==0||danger.has(keyCell(x,y)))continue;const path=botPath(bx,by,x,y);if(path.length)safe.push({x,y,path});}
-        safe.sort((a,b)=>b.path.length-a.path.length);bot.target=safe[0]?{x:safe[0].x,y:safe[0].y,escape:true}:null;
+        safe.sort((a,b)=>{const clearance=p=>{let best=999;for(const b of bombs){if(b.exploded)continue;const d=Math.abs(p.x-b.x)+Math.abs(p.y-b.y);best=Math.min(best,d);}return best;};return (clearance(b)-clearance(a))|| (b.path.length-a.path.length);});bot.target=safe[0]?{x:safe[0].x,y:safe[0].y,escape:true,goal:{x:safe[0].x,y:safe[0].y},step:safe[0].path[0]}:null;
       }else{
         const targets=[];
         const openingPhase=elapsed<18;
