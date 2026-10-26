@@ -138,19 +138,17 @@
       for(const bomb of bombs){
         if(bomb.exploded) continue;
         const left=bomb.x*TILE, top=bomb.y*TILE, right=left+TILE, bottom=top+TILE;
+        // If this is the bomb the player just placed on their own tile, ignore
+        // its collision until the player has completely left that tile.
+        // Walls/crates are still checked above, so escape works beside obstacles.
+        if(bomb.escape){
+          const playerStillOverlaps=player.x+r>left&&player.x-r<right&&player.y+r>top&&player.y-r<bottom;
+          if(playerStillOverlaps) continue;
+        }
         const cx=Math.max(left,Math.min(tx,right));
         const cy=Math.max(top,Math.min(ty,bottom));
         const dx=tx-cx, dy=ty-cy;
-        if(dx*dx+dy*dy>=r*r) continue;
-        if(bomb.escape){
-          // Escape only while the player's centre is inside the bomb tile.
-          // Once the centre leaves the tile, the bomb blocks movement normally.
-          const centerInside=player.x>=left&&player.x<right&&player.y>=top&&player.y<bottom;
-          const oldDist=Math.hypot(player.x-(bomb.x+.5)*TILE,player.y-(bomb.y+.5)*TILE);
-          const newDist=Math.hypot(tx-(bomb.x+.5)*TILE,ty-(bomb.y+.5)*TILE);
-          if(centerInside&&newDist>oldDist+0.001) continue;
-        }
-        return true;
+        if(dx*dx+dy*dy<r*r) return true;
       }
       return false;
     }
