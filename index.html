@@ -123,7 +123,8 @@
     el('range').textContent=player.range; el('speed').textContent=Math.round(player.speed); el('bonusCount').textContent=bonusCount;
   }
   function canMove(nx,ny){
-    const r=player.r-2;
+    // Slightly smaller collision radius leaves a little clearance at tight corners.
+    const r=player.r-5;
     function blocked(tx,ty){
       const minX=Math.floor((tx-r)/TILE), maxX=Math.floor((tx+r)/TILE);
       const minY=Math.floor((ty-r)/TILE), maxY=Math.floor((ty+r)/TILE);
@@ -142,31 +143,36 @@
         const cy=Math.max(top,Math.min(ty,bottom));
         if((tx-cx)*(tx-cx)+(ty-cy)*(ty-cy)>=r*r) continue;
         if(bomb.escape){
-          const overlapsNow=player.x+r>left&&player.x-r<right&&player.y+r>top&&player.y-r<bottom;
+          const overlaps=player.x+player.r>left&&player.x-player.r<right&&player.y+player.r>top&&player.y-player.r<bottom;
           const oldDist=Math.hypot(player.x-(bomb.x+.5)*TILE,player.y-(bomb.y+.5)*TILE);
           const newDist=Math.hypot(tx-(bomb.x+.5)*TILE,ty-(bomb.y+.5)*TILE);
-          if(overlapsNow&&newDist>oldDist+0.01) continue;
+          if(overlaps&&newDist>oldDist+0.01) continue;
         }
         return true;
       }
       return false;
     }
-    // Важно: шаги считаются от начальной позиции, а не от уже сдвинутой.
-    // Иначе каждый маленький шаг прибавлялся повторно и волчок застревал у углов.
     const startX=player.x, startY=player.y;
     const dx=nx-startX, dy=ny-startY;
-    const countX=Math.max(1,Math.ceil(Math.abs(dx)/2));
-    for(let i=1;i<=countX;i++){
-      const tx=startX+dx*i/countX;
-      if(!blocked(tx,player.y)) player.x=tx;
-      else break;
-    }
-    const countY=Math.max(1,Math.ceil(Math.abs(dy)/2));
-    for(let i=1;i<=countY;i++){
-      const ty=startY+dy*i/countY;
-      if(!blocked(player.x,ty)) player.y=ty;
-      else break;
-    }
+    // Try the larger movement axis first, then the other axis for wall sliding.
+    const moveX=()=>{
+      const steps=Math.max(1,Math.ceil(Math.abs(dx)/2));
+      for(let i=1;i<=steps;i++){
+        const tx=startX+dx*i/steps;
+        if(!blocked(tx,player.y)) player.x=tx;
+        else break;
+      }
+    };
+    const moveY=()=>{
+      const steps=Math.max(1,Math.ceil(Math.abs(dy)/2));
+      for(let i=1;i<=steps;i++){
+        const ty=startY+dy*i/steps;
+        if(!blocked(player.x,ty)) player.y=ty;
+        else break;
+      }
+    };
+    if(Math.abs(dx)>=Math.abs(dy)){moveX();moveY();}
+    else {moveY();moveX();}
   }
   function placeBomb(){
     if(gameOver||player.activeBombs>=player.maxBombs) return;
