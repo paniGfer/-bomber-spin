@@ -279,7 +279,8 @@
     if(dx||dy){
       const len=Math.hypot(dx,dy)||1; dx/=len;dy/=len;
       player.angle=Math.atan2(dy,dx);
-      canMove(player.x+dx*player.speed*dt,player.y+dy*player.speed*dt);
+      const moveX=player.x+dx*player.speed*dt,moveY=player.y+dy*player.speed*dt;
+      canMove(player.x+dx*player.speed*dt*(touchDir?Math.max(.35,joystickStrength):1),player.y+dy*player.speed*dt*(touchDir?Math.max(.35,joystickStrength):1));
     }
     // Enable bomb collision only after the player has moved safely away from
     // the bomb's circular body. This avoids trapping them at the tile boundary.
@@ -395,7 +396,7 @@
   document.addEventListener('touchmove',e=>{
     if(joystickPointer!==null) e.preventDefault();
   },{passive:false});
-  let joystickPointer=null;
+  let joystickPointer=null,joystickStrength=0;
   function updateJoystick(e){
     const rect=joystick.getBoundingClientRect();
     const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
@@ -403,14 +404,17 @@
     const max=45, dist=Math.hypot(dx,dy);
     if(dist>max){dx=dx/dist*max;dy=dy/dist*max;}
     stick.style.transform=`translate(${dx}px,${dy}px)`;
-    if(Math.hypot(dx,dy)<10){touchDir=null;return;}
-    if(Math.abs(dx)>Math.abs(dy)*0.65) touchDir=dx>0?'right':'left';
-    else touchDir=dy>0?'down':'up';
+    const strength=Math.min(1,Math.hypot(dx,dy)/45);
+    if(strength<0.12){touchDir=null;moveDir=null;joystickStrength=0;return;}
+    joystickStrength=strength;
+    if(Math.abs(dx)>Math.abs(dy)*0.72) touchDir=dx>0?'right':'left';
+    else if(Math.abs(dy)>Math.abs(dx)*0.72) touchDir=dy>0?'down':'up';
+    else touchDir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');
     moveDir=null;
   }
   function releaseJoystick(e){
     if(joystickPointer!==e.pointerId)return;
-    joystickPointer=null;touchDir=null;stick.style.transform='translate(0,0)';
+    joystickPointer=null;touchDir=null;joystickStrength=0;stick.style.transform='translate(0,0)';
   }
   joystick.addEventListener('pointerdown',e=>{
     e.preventDefault();joystickPointer=e.pointerId;
