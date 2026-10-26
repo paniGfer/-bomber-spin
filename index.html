@@ -132,9 +132,24 @@
   }
   function canMove(nx,ny){
     const r=player.r-2;
+    // While overlapping a newly placed bomb, allow movement only if it takes
+    // the player farther away from that bomb. This prevents crossing through it.
+    const escapeMoveAllowed=(tx,ty)=>{
+      for(const b of bombs){
+        if(b.exploded || !b.escape) continue;
+        const left=b.x*TILE, top=b.y*TILE, right=left+TILE, bottom=top+TILE;
+        const overlaps=tx+player.r>left && tx-player.r<right && ty+player.r>top && ty-player.r<bottom;
+        if(overlaps){
+          const oldDist=Math.hypot(player.x-(b.x+.5)*TILE,player.y-(b.y+.5)*TILE);
+          const newDist=Math.hypot(tx-(b.x+.5)*TILE,ty-(b.y+.5)*TILE);
+          if(newDist<=oldDist+0.01) return false;
+        }
+      }
+      return true;
+    };
     // Axis-separated collision permits sliding along crates.
-    if(!solidAt(nx-r,player.y-r)&&!solidAt(nx+r,player.y-r)&&!solidAt(nx-r,player.y+r)&&!solidAt(nx+r,player.y+r)) player.x=nx;
-    if(!solidAt(player.x-r,ny-r)&&!solidAt(player.x+r,ny-r)&&!solidAt(player.x-r,ny+r)&&!solidAt(player.x+r,ny+r)) player.y=ny;
+    if(escapeMoveAllowed(nx,player.y) && !solidAt(nx-r,player.y-r)&&!solidAt(nx+r,player.y-r)&&!solidAt(nx-r,player.y+r)&&!solidAt(nx+r,player.y+r)) player.x=nx;
+    if(escapeMoveAllowed(player.x,ny) && !solidAt(player.x-r,ny-r)&&!solidAt(player.x+r,ny-r)&&!solidAt(player.x-r,ny+r)&&!solidAt(player.x+r,ny+r)) player.y=ny;
   }
   function placeBomb(){
     if(gameOver||player.activeBombs>=player.maxBombs) return;
